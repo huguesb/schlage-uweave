@@ -235,7 +235,7 @@ Settings use **different property indices for read vs write**. Read index = writ
 | Setting | Write ID | Read ID | Type | Tested | Values |
 |---------|----------|---------|------|--------|--------|
 | Beeper | 0x02 | 0x03 | int | ✓ R/W | 0=off, 1=on |
-| Auto-Lock Time | 0x04 | 0x05 | int | ✓ R/W | 0=off, 15, 30, 60, 120, 240, 360, 600 (seconds) |
+| Auto-Lock Time | 0x04 | 0x05 | int | ✓ R/W | 0=off, otherwise seconds (app offers 15/30/60/120/240/360/600 but arbitrary values work) |
 | Alarm Mode | 0x08 | 0x09 | int | ✓ R | Alarm selection |
 | Alarm Sensitivity | 0x0A | 0x0B | int | ✓ R | Sensitivity level |
 | Lock-and-Leave | 0x0C | 0x0D | int | ✓ R/W | 0=off, 1=on (one-touch locking) |
@@ -270,8 +270,8 @@ NOT the generic `saveData`/`requestData` pattern.
 The lock returns codes one at a time in a loop:
 
 1. *(untested)* **Read code length**: `{1:8, 2:2, 16:{0:5, 1:15}}` (requestData trait=5, prop=0x0F) — app reads this first, our implementation skips it
-2. ✓ **Check count**: `{1:8, 2:3, 16:{0:4, 1:6, 2:{0:0}}}`
-   - Response: `resp.Result[17]` = integer count of available codes
+2. ✓ **Check available**: `{1:8, 2:3, 16:{0:4, 1:6, 2:{0:0}}}`
+   - Response: `resp.Result[17]` = nonzero if codes exist (NOT the actual count — observed returning 1 when 3 codes are present)
 3. ✓ **Read one code**: `{1:8, 2:4, 16:{0:4, 1:5}}`
    - Response: `resp.Result[17]` = flat code data map (see below)
    - Check `codeData[10]` (0x0A) for more: if > 0, send another read

@@ -540,9 +540,9 @@ func (s *Session) DeleteAllAccessCodes() error {
 
 // ListAccessCodes retrieves all configured access codes from the lock.
 // Uses a check+read-loop pattern:
-//   1. Check: {1:8, 2:3, 16:{0:4, 1:6, 2:{0:0}}} → get count
-//   2. Read one: {1:8, 2:4, 16:{0:4, 1:5}} → get one code + moreAvailable
-//   3. Repeat until moreAvailable (key 0x0A in code data) == 0
+//  1. Check: {1:8, 2:3, 16:{0:4, 1:6, 2:{0:0}}} → nonzero if codes exist
+//  2. Read one: {1:8, 2:4, 16:{0:4, 1:5}} → get one code + moreAvailable
+//  3. Repeat until moreAvailable (key 0x0A in code data) == 0
 func (s *Session) ListAccessCodes() ([]AccessCode, error) {
 	log.Debug("session: listing access codes")
 
@@ -557,20 +557,25 @@ func (s *Session) ListAccessCodes() ([]AccessCode, error) {
 	}
 	log.WithField("result", fmt.Sprintf("%+v", checkResp.Result)).Debug("session: access codes check response")
 
-	// Count is at resp.Result[17] (privetKeyResult)
-	count := 0
+	// Check response: resp.Result[17] is nonzero if codes exist.
+	// Note: this value is NOT the actual count of codes — it appears to be
+	// a boolean or page indicator. The real count comes from reading codes
+	// one at a time and checking the moreAvailable field (key 0x0A).
+	available := 0
 	if v, ok := checkResp.Result[privetKeyResult]; ok {
-		count = cborInt(v)
+		available = cborInt(v)
 	}
-	if count == 0 {
+	if available == 0 {
 		log.Info("session: no access codes configured")
 		return nil, nil
 	}
-	log.WithField("count", count).Debug("session: access codes available")
+	log.WithField("available", available).Debug("session: access codes available")
 
-	// Step 2: Read codes one at a time in a loop
+	// Step 2: Read codes one at a time, stopping when moreAvailable == 0.
+	// Safety cap at 250 (max codes the lock supports).
+	const maxCodes = 250
 	var codes []AccessCode
-	for i := 0; i < count+1; i++ { // safety limit: count+1 iterations max
+	for i := 0; i < maxCodes; i++ {
 		readReq := ListAccessCodesReadRequest()
 		readResp, err := s.sendRPC(readReq)
 		if err != nil {
@@ -857,12 +862,12 @@ func (s *Session) GetDeviceInfo() (*DeviceInfo, error) {
 // ---------------------------------------------------------------------------
 
 // GetHistory retrieves lock event history using the check+batched-read pattern.
-//   1. Check: {1:8, 2:2, 16:{0:3, 1:0, 2:{0:0}}} → get count at Result[17]
-//   2. Read batch: {1:8, 2:3, 16:{0:3, 1:batchSize}} → entries at Result[17]
-//      - If batch: individual entries at keys 0x0A–0x0E
-//      - If single: entry data is flat in the map
-//      - Key 4 in data = more available (>0 means repeat read)
-//   3. Repeat until moreAvailable==0 or maxEntries reached
+//  1. Check: {1:8, 2:2, 16:{0:3, 1:0, 2:{0:0}}} → get count at Result[17]
+//  2. Read batch: {1:8, 2:3, 16:{0:3, 1:batchSize}} → entries at Result[17]
+//     - If batch: individual entries at keys 0x0A–0x0E
+//     - If single: entry data is flat in the map
+//     - Key 4 in data = more available (>0 means repeat read)
+//  3. Repeat until moreAvailable==0 or maxEntries reached
 func (s *Session) GetHistory(maxEntries int) ([]HistoryEvent, error) {
 	log.Debug("session: retrieving lock history")
 
@@ -1098,4 +1103,3 @@ func (s *Session) sendRPC(requestBytes []byte) (*PrivetResponse, error) {
 	log.WithField("requestID", resp.RequestID).Debug("session: RPC response received")
 	return resp, nil
 }
-
