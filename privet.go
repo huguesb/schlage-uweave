@@ -378,6 +378,7 @@ const (
 // Property IDs for TraitLockConfig (trait 5).
 const (
 	PropAccessPointParams = 6    // Access point parameters
+	PropAccessCodeLength  = 0x0F // Access code (PIN) length, 4-8 digits — 15
 	PropTimeZone          = 0x14 // Time zone offset — 20
 	PropDSTTimes          = 0x12 // DST times — 18
 	PropOpMode            = 0x1B // Operating mode — 27

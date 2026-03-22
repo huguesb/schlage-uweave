@@ -463,6 +463,29 @@ func (s *Session) GetState() (locked bool, battery int, jammed bool, doorState i
 // Access code management
 // ---------------------------------------------------------------------------
 
+// GetAccessCodeLength reads the configured PIN length from the lock (4-8 digits).
+// Returns 0 if the lock hasn't been configured with any codes yet.
+func (s *Session) GetAccessCodeLength() (int, error) {
+	log.Debug("session: reading access code length")
+
+	req := ReadSettingRequest(PropAccessCodeLength)
+	resp, err := s.sendRPC(req)
+	if err != nil {
+		return 0, fmt.Errorf("session: read access code length failed: %w", err)
+	}
+	if resp.Error != nil {
+		return 0, fmt.Errorf("session: read access code length error: %w", resp.Error)
+	}
+
+	length := 0
+	if v, ok := resp.Result[privetKeyResult]; ok {
+		length = cborInt(v)
+	}
+
+	log.WithField("length", length).Debug("session: access code length")
+	return length, nil
+}
+
 // AddAccessCode adds a new keypad access code to the lock.
 // code: 4-8 digit PIN string, name: human label.
 func (s *Session) AddAccessCode(code string, name string) error {
