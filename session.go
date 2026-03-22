@@ -572,7 +572,9 @@ func (s *Session) ListAccessCodes() ([]AccessCode, error) {
 	log.WithField("available", available).Debug("session: access codes available")
 
 	// Step 2: Read codes one at a time, stopping when moreAvailable == 0.
-	// Safety cap at 250 (max codes the lock supports).
+	// Safety cap at 250 — the highest limit across all Schlage models:
+	//   Encode WKD/Walton: 250, Encode other: 100, Sense (e.g. BE459): 30.
+	// The loop always terminates early on moreAvailable == 0.
 	const maxCodes = 250
 	var codes []AccessCode
 	for i := 0; i < maxCodes; i++ {

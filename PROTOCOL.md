@@ -265,6 +265,18 @@ Other trait 5 properties (not settings — same ID for read/write):
 Access codes use their own CBOR command format,
 NOT the generic `saveData`/`requestData` pattern.
 
+### Maximum Access Codes (per model, from app `UsefulConstants` / `getMaxItemCountForAccessCode`)
+
+| Lock Family | Models | Max Codes |
+|---|---|---|
+| Encode | WKD / Walton | 250 |
+| Encode | Other | 100 |
+| Sense (non-Encode) | BE459, etc. | 30 |
+
+The lock may also report its own `maxUserCodes` via device attributes (trait 5, property 0x0F),
+which the app reads before listing codes. Our implementation skips this and uses `moreAvailable`
+to drive the read loop.
+
 ### Read Flow
 
 The lock returns codes one at a time in a loop:
