@@ -1,4 +1,4 @@
-package schlage
+package schlage_uweave
 
 import (
 	"crypto/hmac"

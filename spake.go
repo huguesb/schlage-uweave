@@ -1,7 +1,7 @@
 // Package schlage implements BLE communication with Schlage locks using the
 // uWeave protocol. This file implements the SPAKE2 key exchange over NIST P-224,
 // used by the Schlage/uWeave pairing protocol.
-package schlage
+package schlage_uweave
 
 import (
 	"crypto/elliptic"

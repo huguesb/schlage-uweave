@@ -2,7 +2,7 @@
 // uWeave protocol. This file implements the session encryption layer:
 // AES-128-EAX authenticated encryption, HKDF-SHA256 key derivation, and
 // session cipher management.
-package schlage
+package schlage_uweave
 
 import (
 	"crypto/aes"

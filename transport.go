@@ -1,4 +1,4 @@
-package schlage
+package schlage_uweave
 
 // Transport abstracts the BLE GATT transport layer for the uWeave protocol.
 // Implementations handle writing to the lock's RX characteristic and receiving
