@@ -59,49 +59,52 @@ The actual data is at `resp.Result[17]`.
 
 Defined in `libuweave/uweave/status.h`. These appear in privet error responses at key 3→4.
 
-| Code | Name | Description |
-|------|------|-------------|
-| 0 | Success | |
-| 1 | NotFound | |
-| 2 | InvalidInput | |
-| 3 | TooLong | |
-| 4 | InvalidArgument | |
-| 5 | CommandNotFound | |
-| 10 | DeviceCryptoNoKeys | |
-| 11 | AuthenticationRequired | |
-| 12 | AuthenticationFailed | |
-| 13 | InsufficientRole | |
-| 14 | PairingRequired | |
-| 15 | VerificationFailed | |
-| 17 | SessionExpired | |
-| 18 | CryptoIncomingMessageInvalid | |
-| 21 | EncryptionRequired | |
-| 50 | PrivetNotFound | |
-| 51 | PrivetInvalidParam | |
-| 52 | PrivetParseError | |
-| 53 | PrivetResponseTooLarge | |
-| 140 | PairingPinCodeTypeUnsupported | |
-| 141 | PairingEmbeddedCodeTypeUnsupported | |
-| 142 | PairingPinCodeGenerationFailed | |
-| 143 | PairingEmbeddedCodeProviderFailed | |
-| 144 | PairingEmbeddedCodeAppendFailed | |
-| 145 | PairingResetRequired | Device already paired; factory reset needed to re-pair |
+> **Note:** Only codes marked ✓ have been observed on real hardware. Others are from
+> the uWeave source and are included for completeness.
+
+| Code | Name | Observed | Description |
+|------|------|----------|-------------|
+| 0 | Success | ✓ | |
+| 1 | NotFound | | |
+| 2 | InvalidInput | ✓ | e.g., history batch size > 1 on BE459 |
+| 3 | TooLong | | |
+| 4 | InvalidArgument | | |
+| 5 | CommandNotFound | ✓ | e.g., requestData on unsupported property |
+| 10 | DeviceCryptoNoKeys | | |
+| 11 | AuthenticationRequired | | |
+| 12 | AuthenticationFailed | | |
+| 13 | InsufficientRole | | |
+| 14 | PairingRequired | | |
+| 15 | VerificationFailed | | |
+| 17 | SessionExpired | | |
+| 18 | CryptoIncomingMessageInvalid | | |
+| 21 | EncryptionRequired | | |
+| 50 | PrivetNotFound | | |
+| 51 | PrivetInvalidParam | | |
+| 52 | PrivetParseError | | |
+| 53 | PrivetResponseTooLarge | | |
+| 140 | PairingPinCodeTypeUnsupported | | |
+| 141 | PairingEmbeddedCodeTypeUnsupported | | |
+| 142 | PairingPinCodeGenerationFailed | | |
+| 143 | PairingEmbeddedCodeProviderFailed | | |
+| 144 | PairingEmbeddedCodeAppendFailed | | |
+| 145 | PairingResetRequired | ✓ | Device already paired; factory reset needed to re-pair |
 
 ---
 
 ## API Endpoints
 
-| API ID | Name | Description |
-|--------|------|-------------|
-| 0 | /info | Device info query |
-| 2 | /pairing/start | Begin SPAKE pairing |
-| 3 | /pairing/confirm | Confirm SPAKE pairing |
-| 5 | /auth | Send CAT/SAT authentication |
-| 6 | /state | Request lock state |
-| 8 | /data | Read/write data (multi-purpose) |
-| 9 | /setup | Device setup |
-| 24 (0x18) | /access/claim | Request access control claim |
-| 25 (0x19) | /access/confirm | Confirm access control |
+| API ID | Name | Tested | Description |
+|--------|------|--------|-------------|
+| 0 | /info | | Device info query (not used by our implementation) |
+| 2 | /pairing/start | ✓ | Begin SPAKE pairing |
+| 3 | /pairing/confirm | ✓ | Confirm SPAKE pairing |
+| 5 | /auth | ✓ | Send CAT/SAT authentication |
+| 6 | /state | ✓ | Request lock state |
+| 8 | /data | ✓ | Read/write data (multi-purpose) |
+| 9 | /setup | | Device setup (not used by our implementation) |
+| 24 (0x18) | /access/claim | ✓ | Request access control claim |
+| 25 (0x19) | /access/confirm | ✓ | Confirm access control |
 
 ---
 
@@ -133,26 +136,30 @@ resp.Result[1][0][0][1] → trait state map
 ```
 
 Trait state map keys:
-| Key | Name | Type | Description |
-|-----|------|------|-------------|
-| 0x00 | LOCK_STATUS | int | Lock state enum |
-| 0x0C | BATTERY_STATE | int | Battery state enum |
-| 0x0E | ALARM_ENABLED | int | Alarm state |
-| 0x15 | BATTERY_LEVEL | int | Battery percentage (0-100) |
-| 0x19 | DOOR_STATE | int | Door state enum |
+| Key | Name | Type | Tested | Description |
+|-----|------|------|--------|-------------|
+| 0x00 | LOCK_STATUS | int | ✓ | Lock state enum |
+| 0x0C | BATTERY_STATE | int | ✓ | Battery state enum |
+| 0x0E | ALARM_ENABLED | int | ✓ | Alarm state |
+| 0x15 | BATTERY_LEVEL | int | ✓ | Battery percentage (0-100) |
+| 0x19 | DOOR_STATE | int | | Door state enum (see note below) |
 
 ### Lock State Enum
-| Value | Name | Description |
-|-------|------|-------------|
-| 0 | UNLOCKED | Bolt retracted |
-| 1 | LOCKED | Bolt extended normally |
-| 2 | JAMMED | Bolt extended with difficulty (still locked) |
-| 3 | UNKNOWN | Unknown state |
-| 4 | MOTOR_JAMMED | Motor stalled, bolt position uncertain |
-| 5 | PASSAGE_MODE | Bolt always retracted |
-| 6 | DEADLOCKED | Bolt fully extended, extra secure |
+| Value | Name | Tested | Description |
+|-------|------|--------|-------------|
+| 0 | UNLOCKED | ✓ | Bolt retracted |
+| 1 | LOCKED | ✓ | Bolt extended normally |
+| 2 | JAMMED | ✓ | Bolt extended with difficulty (still locked) |
+| 3 | UNKNOWN | | Unknown state |
+| 4 | MOTOR_JAMMED | | Motor stalled, bolt position uncertain |
+| 5 | PASSAGE_MODE | | Bolt always retracted |
+| 6 | DEADLOCKED | | Bolt fully extended, extra secure |
 
 ### Door State Enum
+
+> **Untested:** The BE459 does not appear to have a door sensor; this field has only
+> been observed returning UNKNOWN (0). Values 1–3 are from the app.
+
 | Value | Name |
 |-------|------|
 | 0 | UNKNOWN |
@@ -225,13 +232,13 @@ Write: `saveData(5, <property>, <value>)` → `{1:8, 2:7, 16:{0:5, 1:<property>,
 
 Settings use **different property indices for read vs write**. Read index = write index + 1.
 
-| Setting | Write ID | Read ID | Type | Values |
-|---------|----------|---------|------|--------|
-| Beeper | 0x02 | 0x03 | int | 0=off, 1=on |
-| Auto-Lock Time | 0x04 | 0x05 | int | 0=off, 15, 30, 60, 120, 240, 360, 600 (seconds) |
-| Alarm Mode | 0x08 | 0x09 | int | Alarm selection |
-| Alarm Sensitivity | 0x0A | 0x0B | int | Sensitivity level |
-| Lock-and-Leave | 0x0C | 0x0D | int | 0=off, 1=on (one-touch locking) |
+| Setting | Write ID | Read ID | Type | Tested | Values |
+|---------|----------|---------|------|--------|--------|
+| Beeper | 0x02 | 0x03 | int | ✓ R/W | 0=off, 1=on |
+| Auto-Lock Time | 0x04 | 0x05 | int | ✓ R/W | 0=off, 15, 30, 60, 120, 240, 360, 600 (seconds) |
+| Alarm Mode | 0x08 | 0x09 | int | ✓ R | Alarm selection |
+| Alarm Sensitivity | 0x0A | 0x0B | int | ✓ R | Sensitivity level |
+| Lock-and-Leave | 0x0C | 0x0D | int | ✓ R/W | 0=off, 1=on (one-touch locking) |
 
 Read flow (sequential):
 ```
@@ -243,13 +250,13 @@ requestLockConfigGroup(0x0D) → lock-and-leave state
 ```
 
 Other trait 5 properties (not settings — same ID for read/write):
-| Property | Hex | Name | Type |
-|----------|-----|------|------|
-| 15 | 0x0F | Access Code Length | int (4-8) |
-| 18 | 0x12 | DST Times | bytes |
-| 20 | 0x14 | Timezone | int (UTC offset minutes) |
-| 27 | 0x1B | Operating Mode | int |
-| 28 | 0x1C | Max User Codes | int |
+| Property | Hex | Name | Type | Tested |
+|----------|-----|------|------|--------|
+| 15 | 0x0F | Access Code Length | int (4-8) | |
+| 18 | 0x12 | DST Times | bytes | |
+| 20 | 0x14 | Timezone | int (UTC offset minutes) | ✓ (write) |
+| 27 | 0x1B | Operating Mode | int | |
+| 28 | 0x1C | Max User Codes | int | |
 
 ---
 
@@ -262,26 +269,26 @@ NOT the generic `saveData`/`requestData` pattern.
 
 The lock returns codes one at a time in a loop:
 
-1. **Read code length**: `{1:8, 2:2, 16:{0:5, 1:15}}` (requestData trait=5, prop=0x0F)
-2. **Check count**: `{1:8, 2:3, 16:{0:4, 1:6, 2:{0:0}}}`
+1. *(untested)* **Read code length**: `{1:8, 2:2, 16:{0:5, 1:15}}` (requestData trait=5, prop=0x0F) — app reads this first, our implementation skips it
+2. ✓ **Check count**: `{1:8, 2:3, 16:{0:4, 1:6, 2:{0:0}}}`
    - Response: `resp.Result[17]` = integer count of available codes
-3. **Read one code**: `{1:8, 2:4, 16:{0:4, 1:5}}`
+3. ✓ **Read one code**: `{1:8, 2:4, 16:{0:4, 1:5}}`
    - Response: `resp.Result[17]` = flat code data map (see below)
    - Check `codeData[10]` (0x0A) for more: if > 0, send another read
-4. Repeat step 3 until `codeData[10] == 0`
+4. ✓ Repeat step 3 until `codeData[10] == 0`
 
 ### Code Data Map (response at resp.Result[17])
-| Key | Name | Type | Description |
-|-----|------|------|-------------|
-| 0 | UUID | bytes | 16-byte identifier (big-endian) |
-| 1 | Name | string | User label |
-| 2 | Code | int64 | PIN as integer (e.g. 1234) |
-| 3 | Schedule1 | bytes | Weekly schedule (optional) |
-| 4 | Schedule2 | bytes | Additional schedule (optional) |
-| 5 | Blocked | int | 0=active, 1=blocked |
-| 6 | StartDate | int64 | Start epoch seconds (0 if none) |
-| 7 | EndDate | int64 | End epoch seconds (0xFFFFFFFF if none) |
-| 10 (0x0A) | MoreAvailable | int | Count of remaining codes to read |
+| Key | Name | Type | Tested | Description |
+|-----|------|------|--------|-------------|
+| 0 | UUID | bytes | ✓ | 16-byte identifier (big-endian) |
+| 1 | Name | string | ✓ | User label |
+| 2 | Code | int64 | ✓ | PIN as integer (e.g. 1234) |
+| 3 | Schedule1 | bytes | | Weekly schedule (optional) |
+| 4 | Schedule2 | bytes | | Additional schedule (optional) |
+| 5 | Blocked | int | ✓ | 0=active, 1=blocked |
+| 6 | StartDate | int64 | | Start epoch seconds (0 if none) |
+| 7 | EndDate | int64 | | End epoch seconds (0xFFFFFFFF if none) |
+| 10 (0x0A) | MoreAvailable | int | ✓ | Count of remaining codes to read |
 
 ### Add Access Code
 ```
@@ -290,11 +297,12 @@ The lock returns codes one at a time in a loop:
 - `params[1]` = 0 for add
 - Optional keys 3, 4, 6, 7 for schedules/dates
 
-### Update Access Code
+### Update Access Code *(untested)*
 ```
 {1:8, 2:3, 16:{0:4, 1:4, 2:{0:<uuid_bytes>, 1:<name>, 2:<code_long>, 5:<blocked>}}}
 ```
 - `params[1]` = 4 for update (vs 0 for add)
+- Not implemented; format is from app analysis
 
 ### Delete Access Code
 ```
@@ -330,6 +338,10 @@ is discovered by reading until `moreAvailable` (key 4) reaches 0.
 
 When batch size > 1, the response may contain multiple entries at batch index keys
 (0x0A–0x0E). When batch size == 1, the response is a single flat entry map.
+
+> **Note:** Batch mode (batch > 1) is from app analysis and has **not been tested**.
+> BE459 rejects batch sizes > 1 with privet error 2. The batch parsing code exists
+> but has only been exercised in single-entry mode.
 
 Response: `resp.Result[17]` = data map. Key `4` = more entries available (int, >0 means repeat).
 
@@ -375,17 +387,19 @@ Batch mode is detected by checking for the presence of LOG_0_INDEX_KEY (0x0A).
 
 ## Commissioning Flow
 
-1. SPAKE pairing (startPairing + confirm)
-2. Token decryption (extract CAT/SAT)
-3. Reconnect with `CryptoModeTokenSHA256`
-4. SAT handshake → encrypted channel
-5. Send CAT (`/auth`)
-6. **Claim**: `{1:24, 2:4}` → response has CAT bytes at `result[0]`
-7. **Confirm**: `{1:25, 2:5, 16:{0:<cat_bytes>}}`
-8. **Set Timezone**: `saveData(5, 0x14, <offset_minutes>)`
+Steps marked ✓ are implemented and tested. Others are from app analysis.
+
+1. ✓ SPAKE pairing (startPairing + confirm)
+2. ✓ Token decryption (extract CAT/SAT)
+3. ✓ Reconnect with `CryptoModeTokenSHA256`
+4. ✓ SAT handshake → encrypted channel
+5. ✓ Send CAT (`/auth`)
+6. ✓ **Claim**: `{1:24, 2:4}` → response has CAT bytes at `result[0]`
+7. ✓ **Confirm**: `{1:25, 2:5, 16:{0:<cat_bytes>}}`
+8. ✓ **Set Timezone**: `saveData(5, 0x14, <offset_minutes>)`
    - `{1:8, 2:7, 16:{0:5, 1:20, 2:{0:<offset>, 1:<userId>}}}`
-9. **Set DST Times**: custom format on trait 0x8, property 0x1
-10. Read serial number, model name, firmware version
-11. Cloud registration (not BLE)
-12. Write first access code
-13. Auto-handing: lock + unlock with door cracked open
+9. *(untested)* **Set DST Times**: custom format on trait 0x8, property 0x1
+10. ✓ Read serial number, model name, firmware version
+11. Cloud registration (not BLE — out of scope)
+12. ✓ Write first access code
+13. *(untested)* Auto-handing: lock + unlock with door cracked open
