@@ -252,7 +252,7 @@ requestLockConfigGroup(0x0D) → lock-and-leave state
 Other trait 5 properties (not settings — same ID for read/write):
 | Property | Hex | Name | Type | Tested |
 |----------|-----|------|------|--------|
-| 15 | 0x0F | Access Code Length | int (4-8) | |
+| 15 | 0x0F | Access Code Length | int (4-8) | ✓ (read) |
 | 18 | 0x12 | DST Times | bytes | |
 | 20 | 0x14 | Timezone | int (UTC offset minutes) | ✓ (write) |
 | 27 | 0x1B | Operating Mode | int | |
@@ -281,7 +281,7 @@ to drive the read loop.
 
 The lock returns codes one at a time in a loop:
 
-1. *(untested)* **Read code length**: `{1:8, 2:2, 16:{0:5, 1:15}}` (requestData trait=5, prop=0x0F) — app reads this first, our implementation skips it
+1. ✓ **Read code length**: `{1:8, 2:4, 16:{0:5, 1:15}}` (requestData trait=5, prop=0x0F) — returns int 4-8, used to zero-pad PINs on display
 2. ✓ **Check available**: `{1:8, 2:3, 16:{0:4, 1:6, 2:{0:0}}}`
    - Response: `resp.Result[17]` = nonzero if codes exist (NOT the actual count — observed returning 1 when 3 codes are present)
 3. ✓ **Read one code**: `{1:8, 2:4, 16:{0:4, 1:5}}`
