@@ -713,6 +713,132 @@ func (s *Session) SetLockAndLeave(enabled bool) error {
 	return s.writeSetting(SettingWriteLockAndLeave, val, "lock-and-leave")
 }
 
+// SetAlarmMode configures the alarm mode.
+func (s *Session) SetAlarmMode(mode int) error {
+	log.WithField("mode", mode).Debug("session: setting alarm mode")
+	return s.writeSetting(SettingWriteAlarmMode, mode, "alarm mode")
+}
+
+// SetAlarmSensitivity configures the alarm sensitivity level.
+func (s *Session) SetAlarmSensitivity(sensitivity int) error {
+	log.WithField("sensitivity", sensitivity).Debug("session: setting alarm sensitivity")
+	return s.writeSetting(SettingWriteAlarmSensitivity, sensitivity, "alarm sensitivity")
+}
+
+// SetAccessCodeLength sets the PIN length for keypad access codes (4-8 digits).
+// This should be called during commissioning before the first access code is added.
+func (s *Session) SetAccessCodeLength(length int) error {
+	log.WithField("length", length).Debug("session: setting access code length")
+
+	req := SetAccessCodeLengthRequest(length)
+	resp, err := s.sendRPC(req)
+	if err != nil {
+		return fmt.Errorf("session: set access code length failed: %w", err)
+	}
+	if resp.Error != nil {
+		return fmt.Errorf("session: set access code length error: %w", resp.Error)
+	}
+
+	log.Info("session: access code length set successfully")
+	return nil
+}
+
+// GetTimezone reads the lock's timezone offset in minutes from UTC.
+func (s *Session) GetTimezone() (int, error) {
+	log.Debug("session: reading timezone")
+
+	req := ReadSettingRequest(PropTimezoneRead)
+	resp, err := s.sendRPC(req)
+	if err != nil {
+		return 0, fmt.Errorf("session: read timezone failed: %w", err)
+	}
+	if resp.Error != nil {
+		return 0, fmt.Errorf("session: read timezone error: %w", resp.Error)
+	}
+
+	offset := 0
+	if v, ok := resp.Result[privetKeyResult]; ok {
+		offset = cborInt(v)
+	}
+
+	log.WithField("offset", offset).Debug("session: timezone offset")
+	return offset, nil
+}
+
+// SetDSTTimes sets daylight saving time transition timestamps.
+// dstStart and dstEnd are opaque byte arrays representing the transition times.
+func (s *Session) SetDSTTimes(dstStart, dstEnd []byte) error {
+	log.Debug("session: setting DST times")
+
+	req := SetDSTTimesRequest(dstStart, dstEnd)
+	resp, err := s.sendRPC(req)
+	if err != nil {
+		return fmt.Errorf("session: set DST times failed: %w", err)
+	}
+	if resp.Error != nil {
+		return fmt.Errorf("session: set DST times error: %w", resp.Error)
+	}
+
+	log.Info("session: DST times set successfully")
+	return nil
+}
+
+// SetSimultaneousMode enables or disables simultaneous mode (Matter protocol
+// alongside Schlage BLE). Only available on newer "Walton" hardware.
+func (s *Session) SetSimultaneousMode(enabled bool) error {
+	val := 0
+	if enabled {
+		val = 1
+	}
+	log.WithField("enabled", enabled).Debug("session: setting simultaneous mode")
+	return s.writeSetting(PropSimultaneousMode, val, "simultaneous mode")
+}
+
+// GetOperatingMode reads the lock's operating mode.
+// Returns 0 for Schlage (BLE only) or 1 for Simultaneous (BLE + Matter).
+func (s *Session) GetOperatingMode() (int, error) {
+	log.Debug("session: reading operating mode")
+
+	req := ReadSettingRequest(PropOpMode)
+	resp, err := s.sendRPC(req)
+	if err != nil {
+		return 0, fmt.Errorf("session: read operating mode failed: %w", err)
+	}
+	if resp.Error != nil {
+		return 0, fmt.Errorf("session: read operating mode error: %w", resp.Error)
+	}
+
+	mode := 0
+	if v, ok := resp.Result[privetKeyResult]; ok {
+		mode = cborInt(v)
+	}
+
+	log.WithField("mode", mode).Debug("session: operating mode")
+	return mode, nil
+}
+
+// GetMaxUserCodes reads the maximum number of access codes the lock supports.
+func (s *Session) GetMaxUserCodes() (int, error) {
+	log.Debug("session: reading max user codes")
+
+	req := GetMaxUserCodesRequest(s.getUserID())
+	resp, err := s.sendRPC(req)
+	if err != nil {
+		return 0, fmt.Errorf("session: read max user codes failed: %w", err)
+	}
+	if resp.Error != nil {
+		return 0, fmt.Errorf("session: read max user codes error: %w", resp.Error)
+	}
+
+	maxCodes := 0
+	if v, ok := resp.Result[privetKeyResult]; ok {
+		maxCodes = cborInt(v)
+	}
+
+	log.WithField("maxCodes", maxCodes).Debug("session: max user codes")
+	return maxCodes, nil
+}
+
 // GetSettings reads all configurable lock settings.
 func (s *Session) GetSettings() (*LockSettings, error) {
 	log.Debug("session: reading lock settings")
@@ -730,6 +856,8 @@ func (s *Session) GetSettings() (*LockSettings, error) {
 		{SettingReadAlarmMode, "alarm_mode"},
 		{SettingReadAlarmSensitivity, "alarm_sensitivity"},
 		{SettingReadLockAndLeave, "lock_and_leave"},
+		{PropTimezoneRead, "timezone"},
+		{PropOpMode, "operating_mode"},
 	}
 
 	for _, r := range reads {
@@ -774,6 +902,10 @@ func (s *Session) GetSettings() (*LockSettings, error) {
 			settings.AlarmMode = cborInt(val)
 		case SettingReadAlarmSensitivity:
 			settings.AlarmSensitivity = cborInt(val)
+		case PropTimezoneRead:
+			settings.TimezoneOffset = cborInt(val)
+		case PropOpMode:
+			settings.OperatingMode = cborInt(val)
 		}
 	}
 
@@ -783,6 +915,8 @@ func (s *Session) GetSettings() (*LockSettings, error) {
 		"lockAndLeave":     settings.LockAndLeave,
 		"alarmMode":        settings.AlarmMode,
 		"alarmSensitivity": settings.AlarmSensitivity,
+		"timezone":         settings.TimezoneOffset,
+		"operatingMode":    settings.OperatingMode,
 	}).Info("session: lock settings retrieved")
 
 	return settings, nil

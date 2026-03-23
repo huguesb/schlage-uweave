@@ -405,12 +405,15 @@ const (
 
 // Property IDs for TraitLockConfig (trait 5).
 const (
-	PropAccessPointParams = 6    // Access point parameters
-	PropAccessCodeLength  = 0x0F // Access code (PIN) length, 4-8 digits — 15
-	PropTimeZone          = 0x14 // Time zone offset — 20
-	PropDSTTimes          = 0x12 // DST times — 18
-	PropOpMode            = 0x1B // Operating mode — 27
-	PropMaxUserCodes      = 0x1C // Max user access codes (R) — 28
+	PropAccessPointParams   = 6    // Access point parameters
+	PropSetAccessCodeLength = 0x0E // Set access code (PIN) length, 4-8 digits (W) — 14
+	PropAccessCodeLength    = 0x0F // Access code (PIN) length, 4-8 digits (R) — 15
+	PropDSTTimes            = 0x12 // DST times — 18
+	PropTimeZone            = 0x14 // Time zone offset (W) — 20
+	PropTimezoneRead        = 0x15 // Time zone offset (R) — 21
+	PropSimultaneousMode    = 0x1A // Simultaneous mode (W): 1=enable Matter — 26
+	PropOpMode              = 0x1B // Operating mode (R): 0=Schlage, 1=Simultaneous — 27
+	PropMaxUserCodes        = 0x1C // Max user access codes (R) — 28
 )
 
 // Lock state response keys — inner map from requestLockState response.
@@ -873,6 +876,40 @@ func ReadDeviceInfoRequest(propertyKey int) []byte {
 	return RequestDataRequest(TraitLockData, propertyKey)
 }
 
+// SetAccessCodeLengthRequest builds a request to set the PIN length (4-8 digits).
+// Wire format: {1:8, 2:2, 16:{0:5, 1:14, 2:{0:<length>}}}
+// Uses reqType 2 (not saveData's 7) and has no userId.
+func SetAccessCodeLengthRequest(length int) []byte {
+	params := map[int]interface{}{
+		0: TraitLockConfig,
+		1: PropSetAccessCodeLength,
+		2: map[int]interface{}{0: length},
+	}
+	return PrivetRequest(APIData, RequestIDCodeLength, params)
+}
+
+// SetDSTTimesRequest builds a request to set daylight saving time transitions.
+// Wire format: {1:8, 2:1, 16:{0:5, 1:18, 2:{0:1, 1:<start_bytes>, 2:<end_bytes>}}}
+func SetDSTTimesRequest(dstStart, dstEnd []byte) []byte {
+	params := map[int]interface{}{
+		0: TraitLockConfig,
+		1: PropDSTTimes,
+		2: map[int]interface{}{
+			0: 1,        // DST enabled
+			1: dstStart, // transition start timestamp
+			2: dstEnd,   // transition end timestamp
+		},
+	}
+	return PrivetRequest(APIData, RequestIDStartPairing, params) // reqType 1
+}
+
+// GetMaxUserCodesRequest builds a request to read the max access codes the lock supports.
+// Wire format: {1:8, 2:7, 16:{0:5, 1:28, 2:{0:1, 1:<userId>}}}
+// Uses saveData (write) format to trigger a read response from the lock.
+func GetMaxUserCodesRequest(userId []byte) []byte {
+	return SaveDataRequest(TraitLockConfig, PropMaxUserCodes, 1, userId)
+}
+
 // ---------------------------------------------------------------------------
 // History request builders
 // ---------------------------------------------------------------------------
@@ -935,6 +972,8 @@ type LockSettings struct {
 	LockAndLeave     bool // one-touch locking
 	AlarmMode        int  // alarm mode
 	AlarmSensitivity int  // alarm sensitivity
+	TimezoneOffset   int  // UTC offset in minutes
+	OperatingMode    int  // 0=Schlage, 1=Simultaneous (Matter)
 }
 
 // DeviceInfo holds read-only device information.

@@ -239,8 +239,8 @@ Settings use **different property indices for read vs write**. Read index = writ
 |---------|----------|---------|------|--------|--------|
 | Beeper | 0x02 | 0x03 | int | ✓ R/W | 0=off, 1=on |
 | Auto-Lock Time | 0x04 | 0x05 | int | ✓ R/W | 0=off, otherwise seconds (app offers 15/30/60/120/240/360/600 but arbitrary values work) |
-| Alarm Mode | 0x08 | 0x09 | int | ✓ R | Alarm selection |
-| Alarm Sensitivity | 0x0A | 0x0B | int | ✓ R | Sensitivity level |
+| Alarm Mode | 0x08 | 0x09 | int | ✓ R/W | Alarm selection |
+| Alarm Sensitivity | 0x0A | 0x0B | int | ✓ R/W | Sensitivity level |
 | Lock-and-Leave | 0x0C | 0x0D | int | ✓ R/W | 0=off, 1=on (one-touch locking) |
 
 Read flow (sequential):
@@ -258,14 +258,14 @@ These use the same ID for read and write, and have their own request formats.
 
 | Property | Hex | Name | Type | Tested | Notes |
 |----------|-----|------|------|--------|-------|
-| 14 | 0x0E | Set Access Code Length | int (4-8) | | Write-only; `{1:8, 2:2, 16:{0:5, 1:14, 2:{0:<length>}}}` |
+| 14 | 0x0E | Set Access Code Length | int (4-8) | ✓ (write) | Write-only; `{1:8, 2:2, 16:{0:5, 1:14, 2:{0:<length>}}}` |
 | 15 | 0x0F | Access Code Length | int (4-8) | ✓ (read) | Read-only |
 | 18 | 0x12 | DST Times | bytes | | See commissioning flow |
 | 20 | 0x14 | Timezone | int (UTC offset minutes) | ✓ (write) | |
-| 21 | 0x15 | Timezone (read) | int | | |
-| 26 | 0x1A | Simultaneous Mode (write) | int | | 1=enable Matter protocol alongside Schlage BLE (newer locks only) |
-| 27 | 0x1B | Operating Mode (read) | int | | 0=Schlage, 1=Simultaneous (when read via BLE) |
-| 28 | 0x1C | Max User Codes | int | | Read via `saveLockConfigGroup(28, 1)` |
+| 21 | 0x15 | Timezone (read) | int | ✓ (read) | |
+| 26 | 0x1A | Simultaneous Mode (write) | int | ✓ (write) | 1=enable Matter protocol alongside Schlage BLE (newer locks only) |
+| 27 | 0x1B | Operating Mode (read) | int | ✓ (read) | 0=Schlage, 1=Simultaneous (when read via BLE) |
+| 28 | 0x1C | Max User Codes | int | ✓ (read) | Read via `saveLockConfigGroup(28, 1)` |
 
 ### Set Access Code Length
 
