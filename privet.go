@@ -1017,3 +1017,26 @@ func LockEventName(eventType int) string {
 		return fmt.Sprintf("unknown_%d", eventType)
 	}
 }
+
+// DoorStateString returns a human-readable name for a door state value.
+func DoorStateString(ds int) string {
+	switch ds {
+	case DoorStateOpen:
+		return "OPEN"
+	case DoorStateClosed:
+		return "CLOSED"
+	case DoorStateFaulty:
+		return "FAULTY"
+	default:
+		return "UNKNOWN"
+	}
+}
+
+// FormatPIN formats an access code integer as a zero-padded string.
+// codeLength is the lock's configured PIN length (4-8); if < 4, defaults to 4.
+func FormatPIN(code int64, codeLength int) string {
+	if codeLength < 4 {
+		codeLength = 4
+	}
+	return fmt.Sprintf("%0*d", codeLength, code)
+}
