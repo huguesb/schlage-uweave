@@ -231,41 +231,30 @@ Properties 9 and 0x15 return error 5 on BE459.
 Read: `requestData(5, <property>)` → `{1:8, 2:4, 16:{0:5, 1:<property>}}`
 Write: `saveData(5, <property>, <value>)` → `{1:8, 2:7, 16:{0:5, 1:<property>, 2:{0:<value>, 1:<userId>}}}`
 
-### Property IDs
+### Standard Settings (write=N / read=N+1 pattern)
 
-Settings use **different property indices for read vs write**. Read index = write index + 1.
+These settings use **different property indices for read vs write**. Read index = write index + 1.
 
-| Setting | Write ID | Read ID | Type | Tested | Values |
-|---------|----------|---------|------|--------|--------|
+| Setting | Write ID | Read ID | Type | BE459 | Values |
+|---------|----------|---------|------|-------|--------|
 | Beeper | 0x02 | 0x03 | int | ✓ R/W | 0=off, 1=on |
 | Auto-Lock Time | 0x04 | 0x05 | int | ✓ R/W | 0=off, otherwise seconds (app offers 15/30/60/120/240/360/600 but arbitrary values work) |
 | Alarm Mode | 0x08 | 0x09 | int | ✓ R/W | Alarm selection |
 | Alarm Sensitivity | 0x0A | 0x0B | int | ✓ R/W | Sensitivity level |
 | Lock-and-Leave | 0x0C | 0x0D | int | ✓ R/W | 0=off, 1=on (one-touch locking) |
-
-Read flow (sequential):
-```
-requestLockConfigGroup(0x03) → beeper state
-requestLockConfigGroup(0x05) → auto-lock time
-requestLockConfigGroup(0x09) → alarm mode
-requestLockConfigGroup(0x0B) → alarm sensitivity
-requestLockConfigGroup(0x0D) → lock-and-leave state
-```
+| Timezone | 0x14 | 0x15 | int | ✓ R/W | UTC offset in minutes (e.g., -300 for EST) |
 
 ### Other Trait 5 Properties
 
-These use the same ID for read and write, and have their own request formats.
+These also follow the write=N/read=N+1 pattern but use different wire formats
+(not standard `saveData`/`requestData`).
 
-| Property | Hex | Name | Type | Tested | Notes |
-|----------|-----|------|------|--------|-------|
-| 14 | 0x0E | Set Access Code Length | int (4-8) | ✓ (write) | Write-only; `{1:8, 2:2, 16:{0:5, 1:14, 2:{0:<length>}}}` |
-| 15 | 0x0F | Access Code Length | int (4-8) | ✓ (read) | Read-only |
-| 18 | 0x12 | DST Times | bytes | | See commissioning flow |
-| 20 | 0x14 | Timezone | int (UTC offset minutes) | ✓ (write) | |
-| 21 | 0x15 | Timezone (read) | int | ✓ (read) | |
-| 26 | 0x1A | Simultaneous Mode (write) | int | ✓ (write) | 1=enable Matter protocol alongside Schlage BLE (newer locks only) |
-| 27 | 0x1B | Operating Mode (read) | int | ✓ (read) | 0=Schlage, 1=Simultaneous (when read via BLE) |
-| 28 | 0x1C | Max User Codes | int | ✓ (read) | Read via `saveLockConfigGroup(28, 1)` |
+| Setting | Write ID | Read ID | Type | BE459 | Notes |
+|---------|----------|---------|------|-------|-------|
+| Access Code Length | 0x0E | 0x0F | int (4-8) | ✓ R/W | Special reqType 2 for write; see below |
+| DST Times | 0x12 | 0x13 (?) | bytes | untested | Special reqType 1 for write; read untested (app never reads, but firmware may support it) |
+| Simultaneous Mode | 0x1A | 0x1B | int | error 5 | Encode/Walton WiFi variants only |
+| Max User Codes | — | 0x1C | int | ✓ R | Read via `saveLockConfigGroup(28, 1)` (saveData triggers response); no write |
 
 ### Set Access Code Length
 
@@ -276,6 +265,13 @@ before the first access code is added.
 {1:8, 2:2, 16:{0:5, 1:14, 2:{0:<length>}}}
 ```
 No userId needed.
+
+> **Observed behavior:** Setting the code length does NOT retroactively validate
+> existing codes. A lock configured with 4-digit codes will continue to accept
+> them after the length is changed to 6. Leading zeros are ignored during keypad
+> entry — the lock matches against the integer value (e.g., `001234` matches a
+> code stored as `1234`). Even zero-padding beyond the configured length limit
+> (e.g., 10+ digits with leading zeros for a 4-digit code) is accepted.
 
 ### Set DST Times
 
@@ -288,6 +284,8 @@ timezone is set.
 - Key 0: integer `1` (DST enabled flag)
 - Key 1: byte array — DST start transition time
 - Key 2: byte array — DST end transition time
+
+Write-only — the app never reads DST times back from the lock.
 
 ### Operating Mode / Simultaneous Mode
 
@@ -305,7 +303,56 @@ Enable simultaneous (Matter): `saveLockConfigGroup(26, 1)` — `{1:8, 2:7, 16:{0
 > **Note:** Simultaneous mode enables the Matter smart home protocol alongside
 > Schlage BLE. It does NOT allow multiple Schlage BLE clients — it's about
 > protocol coexistence (e.g., adding the lock to Apple Home/Google Home via Matter
-> while keeping Schlage app control). Only available on newer "Walton" hardware.
+> while keeping Schlage app control).
+>
+> **BE459 returns error 5** for both operating mode read (0x1B) and simultaneous
+> mode write (0x1A). These properties appear to be available only on Encode-family
+> and Walton locks with WiFi capability. See the model support matrix below.
+
+---
+
+## Model Support Matrix
+
+Device families and their capabilities, from decompiled APK analysis (`SenseDevice.java`,
+`DeviceTypeUtilityKt.java`, `SenseDeviceUtilityKt.java`).
+
+### Lock Families
+
+| Family | Models | App Internal Name | Notes |
+|--------|--------|-------------------|-------|
+| **SENSE** | be479 | SENSE | BLE-only, oldest |
+| **WKD** (Arrive) | be459, be459ble, be459wifi | WKD | Our test hardware |
+| **WALTON** (Sense Pro) | be889, be889ble, be889wifi | WALTON | Feature-flagged in app |
+| **DENALI** (Encode) | be489, be489ble, be489wifi, +McKinley variants | DENALI | Multiple generations |
+| **JACKALOPE** (Encode Plus) | be499, be499ble, be499wifi, +McKinley variants | JACKALOPE | |
+| **ENCODE LEVER** | fe789, fe789ble, fe789wifi, +McKinley variants | ENCODE_LEVER | Lever form factor |
+| **SELENE** | gselent*, gselsec*, sselent*, sselsec* | SELENE | Gainsborough/Schlage variants |
+| **BRIDGE** | br400 | BRIDGE | WiFi adapter, not a lock |
+
+> **Note:** Models with `wifi` or `wb` suffix have an onboard WiFi module. Models
+> with `ble` suffix are BLE-only variants of the same hardware. The BLE protocol
+> is the same across variants; WiFi adds trait 6 operations.
+
+### Feature Availability
+
+| Feature | SENSE (be479) | WKD (be459) | Encode (be489/499/fe789) | WALTON (be889) |
+|---------|---------------|-------------|--------------------------|----------------|
+| Max access codes | 30 | 250 | 100 | 250 |
+| Standard settings (beeper, auto-lock, alarm, lock-and-leave) | ? | ✓ | ✓ | ✓ |
+| Timezone | ? | ✓ | ✓ | ✓ |
+| Set access code length | ? | ✓ | ✓ | ✓ |
+| Operating mode / simultaneous | No | **error 5** | ✓ (WiFi variants) | ✓ (WiFi variants) |
+| WiFi (trait 6) | via Bridge | WiFi variant | WiFi variants | WiFi variant |
+| History batch size | ? | 1 only | up to 5 | up to 5 |
+| DST times | ? | untested | untested | untested |
+| Deadlock | No | ✓ | ✓ | ✓ |
+| Passage mode | No | ✓ | ✓ | ✓ |
+
+> **Observed:** BE459 (WKD BLE-only) returns privet error 5 (CommandNotFound) for
+> operating mode read (property 0x1B) and is expected to do the same for
+> simultaneous mode write (property 0x1A). Despite being classified as "WKD" in
+> the app (same family as the WiFi-equipped be459wifi), the BLE-only variant does
+> not support these properties. The app likely gates this on the WiFi device type check.
 
 ---
 

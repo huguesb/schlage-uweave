@@ -839,6 +839,13 @@ func (s *Session) GetMaxUserCodes() (int, error) {
 	return maxCodes, nil
 }
 
+// ProbeProperty sends a raw requestData for the given trait and property,
+// returning the full PrivetResponse for inspection.
+func (s *Session) ProbeProperty(trait, property int) (*PrivetResponse, error) {
+	req := RequestDataRequest(trait, property)
+	return s.sendRPC(req)
+}
+
 // GetSettings reads all configurable lock settings.
 func (s *Session) GetSettings() (*LockSettings, error) {
 	log.Debug("session: reading lock settings")
