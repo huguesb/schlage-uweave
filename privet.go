@@ -411,12 +411,17 @@ const (
 
 // Property IDs for TraitLockConfig (trait 5).
 const (
-	PropAccessPointParams   = 6    // Access point parameters
+	PropUnknown01           = 0x01 // Unknown read-only (3-byte string on BE459)
+	PropAccessPointParams   = 6    // Access point parameters (W) — 6
+	PropAPParamsRead        = 7    // Access point parameters (R) — 7
 	PropSetAccessCodeLength = 0x0E // Set access code (PIN) length, 4-8 digits (W) — 14
 	PropAccessCodeLength    = 0x0F // Access code (PIN) length, 4-8 digits (R) — 15
-	PropDSTTimes            = 0x12 // DST times — 18
+	PropDSTTimes            = 0x12 // DST times (W) — 18
+	PropDSTTimesRead        = 0x13 // DST times (R) — 19
 	PropTimeZone            = 0x14 // Time zone offset (W) — 20
 	PropTimezoneRead        = 0x15 // Time zone offset (R) — 21
+	PropUnknown18           = 0x18 // Unknown (W) — 24
+	PropUnknown19           = 0x19 // Unknown (R) — 25
 	PropSimultaneousMode    = 0x1A // Simultaneous mode (W): 1=enable Matter — 26
 	PropOpMode              = 0x1B // Operating mode (R): 0=Schlage, 1=Simultaneous — 27
 	PropMaxUserCodes        = 0x1C // Max user access codes (R) — 28
@@ -980,6 +985,13 @@ type LockSettings struct {
 	AlarmSensitivity int  // alarm sensitivity
 	TimezoneOffset   int  // UTC offset in minutes
 	OperatingMode    int  // 0=Schlage, 1=Simultaneous (Matter)
+}
+
+// DSTTimes holds the daylight saving time configuration read from the lock.
+type DSTTimes struct {
+	Enabled int    // 0=disabled, 1=enabled
+	Start   []byte // transition start timestamp
+	End     []byte // transition end timestamp
 }
 
 // DeviceInfo holds read-only device information.

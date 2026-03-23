@@ -783,6 +783,42 @@ func (s *Session) SetDSTTimes(dstStart, dstEnd []byte) error {
 	return nil
 }
 
+// GetDSTTimes reads the daylight saving time configuration from the lock.
+func (s *Session) GetDSTTimes() (*DSTTimes, error) {
+	log.Debug("session: reading DST times")
+
+	req := ReadSettingRequest(PropDSTTimesRead)
+	resp, err := s.sendRPC(req)
+	if err != nil {
+		return nil, fmt.Errorf("session: read DST times failed: %w", err)
+	}
+	if resp.Error != nil {
+		return nil, fmt.Errorf("session: read DST times error: %w", resp.Error)
+	}
+
+	dst := &DSTTimes{}
+	if v, ok := resp.Result[privetKeyResult]; ok {
+		if m, ok := v.(map[int]interface{}); ok {
+			if val, ok := m[0]; ok {
+				dst.Enabled = cborInt(val)
+			}
+			if val, ok := m[1].([]byte); ok {
+				dst.Start = val
+			}
+			if val, ok := m[2].([]byte); ok {
+				dst.End = val
+			}
+		}
+	}
+
+	log.WithFields(log.Fields{
+		"enabled": dst.Enabled,
+		"start":   fmt.Sprintf("%x", dst.Start),
+		"end":     fmt.Sprintf("%x", dst.End),
+	}).Debug("session: DST times")
+	return dst, nil
+}
+
 // SetSimultaneousMode enables or disables simultaneous mode (Matter protocol
 // alongside Schlage BLE). Only available on newer "Walton" hardware.
 func (s *Session) SetSimultaneousMode(enabled bool) error {

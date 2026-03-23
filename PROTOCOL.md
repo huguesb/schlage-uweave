@@ -88,6 +88,7 @@ Defined in `libuweave/uweave/status.h`. These appear in privet error responses a
 | 142 | PairingPinCodeGenerationFailed | | |
 | 143 | PairingEmbeddedCodeProviderFailed | | |
 | 144 | PairingEmbeddedCodeAppendFailed | | |
+| 110 | ? (unknown) | ✓ | Returned when reading a write-only property via requestData (observed on DST times 0x12) |
 | 145 | PairingResetRequired | ✓ | Device already paired; factory reset needed to re-pair |
 
 ---
@@ -231,30 +232,59 @@ Properties 9 and 0x15 return error 5 on BE459.
 Read: `requestData(5, <property>)` → `{1:8, 2:4, 16:{0:5, 1:<property>}}`
 Write: `saveData(5, <property>, <value>)` → `{1:8, 2:7, 16:{0:5, 1:<property>, 2:{0:<value>, 1:<userId>}}}`
 
-### Standard Settings (write=N / read=N+1 pattern)
+### Probe Results (BE459, firmware 00.09.044544)
 
-These settings use **different property indices for read vs write**. Read index = write index + 1.
+Full `requestData` sweep of trait 5 property IDs 0x00–0x20. This confirms the
+write=N/read=N+1 pattern across all properties. Write IDs return error 2
+(InvalidInput) when read via `requestData` — they require `saveData` format.
 
-| Setting | Write ID | Read ID | Type | BE459 | Values |
-|---------|----------|---------|------|-------|--------|
-| Beeper | 0x02 | 0x03 | int | ✓ R/W | 0=off, 1=on |
-| Auto-Lock Time | 0x04 | 0x05 | int | ✓ R/W | 0=off, otherwise seconds (app offers 15/30/60/120/240/360/600 but arbitrary values work) |
-| Alarm Mode | 0x08 | 0x09 | int | ✓ R/W | Alarm selection |
-| Alarm Sensitivity | 0x0A | 0x0B | int | ✓ R/W | Sensitivity level |
-| Lock-and-Leave | 0x0C | 0x0D | int | ✓ R/W | 0=off, 1=on (one-touch locking) |
-| Timezone | 0x14 | 0x15 | int | ✓ R/W | UTC offset in minutes (e.g., -300 for EST) |
+| Write | Read | Name | BE459 Read | Notes |
+|-------|------|------|------------|-------|
+| — | 0x01 | ? (unknown) | OK: 3-byte string `\xed\xd4\x05` | Read-only, stable, not CBOR. Possibly hw capability bitmap or config fingerprint |
+| 0x02 | 0x03 | Beeper | 1 | 0=off, 1=on |
+| 0x04 | 0x05 | Auto-Lock Time | 0 | Seconds; 0=off |
+| 0x06 | 0x07 | Access Point Params | 0 | Purpose unclear |
+| 0x08 | 0x09 | Alarm Mode | 0 | Alarm selection |
+| 0x0A | 0x0B | Alarm Sensitivity | 0 | Sensitivity level |
+| 0x0C | 0x0D | Lock-and-Leave | 1 | 0=off, 1=on |
+| 0x0E | 0x0F | Access Code Length | 6 | 4-8 digits; write uses special reqType 2 |
+| 0x12 | 0x13 | DST Times | {0:0, 1:[0,0,0,1], 2:[0,0,0,1]} | Write uses reqType 1; read returns structured map |
+| 0x14 | 0x15 | Timezone | 0 | UTC offset in minutes |
+| 0x18 | 0x19 | ? (unknown) | 0 | Undocumented write/read pair |
+| 0x1A | 0x1B | Simultaneous / Op Mode | error 5 | Not supported on BE459; Encode/Walton WiFi only |
+| — | 0x1C | Max User Codes | error 5 | Needs `saveLockConfigGroup(28, 1)`, not `requestData` |
 
-### Other Trait 5 Properties
+Gaps: 0x00 (error 5), 0x10–0x11 (error 5), 0x16–0x17 (error 5), 0x1D–0x20 (error 5).
 
-These also follow the write=N/read=N+1 pattern but use different wire formats
-(not standard `saveData`/`requestData`).
+Error 110 was observed when reading the DST write property (0x12) — an undocumented
+uWeave status code, distinct from error 2 (InvalidInput) returned by other write-only properties.
 
-| Setting | Write ID | Read ID | Type | BE459 | Notes |
-|---------|----------|---------|------|-------|-------|
-| Access Code Length | 0x0E | 0x0F | int (4-8) | ✓ R/W | Special reqType 2 for write; see below |
-| DST Times | 0x12 | 0x13 (?) | bytes | untested | Special reqType 1 for write; read untested (app never reads, but firmware may support it) |
-| Simultaneous Mode | 0x1A | 0x1B | int | error 5 | Encode/Walton WiFi variants only |
-| Max User Codes | — | 0x1C | int | ✓ R | Read via `saveLockConfigGroup(28, 1)` (saveData triggers response); no write |
+### Standard Settings
+
+Read: `requestData(5, <readID>)` → `{1:8, 2:4, 16:{0:5, 1:<readID>}}`
+Write: `saveData(5, <writeID>, <value>)` → `{1:8, 2:7, 16:{0:5, 1:<writeID>, 2:{0:<value>, 1:<userId>}}}`
+
+| Setting | Write ID | Read ID | Type | Values |
+|---------|----------|---------|------|--------|
+| Beeper | 0x02 | 0x03 | int | 0=off, 1=on |
+| Auto-Lock Time | 0x04 | 0x05 | int | 0=off, otherwise seconds (app offers 15/30/60/120/240/360/600 but arbitrary values work) |
+| Access Point Params | 0x06 | 0x07 | int | Unknown purpose; reads as 0 on BE459 |
+| Alarm Mode | 0x08 | 0x09 | int | Alarm selection |
+| Alarm Sensitivity | 0x0A | 0x0B | int | Sensitivity level |
+| Lock-and-Leave | 0x0C | 0x0D | int | 0=off, 1=on (one-touch locking) |
+| Timezone | 0x14 | 0x15 | int | UTC offset in minutes (e.g., -300 for EST) |
+| ? (unknown) | 0x18 | 0x19 | int | Reads as 0 on BE459; purpose unknown |
+
+### Special-Format Properties
+
+These follow the write=N/read=N+1 pattern but use non-standard wire formats for writes.
+
+| Setting | Write ID | Read ID | Type | Notes |
+|---------|----------|---------|------|-------|
+| Access Code Length | 0x0E | 0x0F | int (4-8) | Write: reqType 2, no userId |
+| DST Times | 0x12 | 0x13 | map | Write: reqType 1; read confirmed on BE459 |
+| Simultaneous Mode | 0x1A | 0x1B | int | BE459: error 5. Encode/Walton WiFi only |
+| Max User Codes | — | 0x1C | int | Read via `saveLockConfigGroup(28, 1)`; BE459: error 5 via requestData |
 
 ### Set Access Code Length
 
@@ -273,19 +303,31 @@ No userId needed.
 > code stored as `1234`). Even zero-padding beyond the configured length limit
 > (e.g., 10+ digits with leading zeros for a 4-digit code) is accepted.
 
-### Set DST Times
+### DST Times
 
 Sets daylight saving time transition timestamps. Sent during commissioning after
 timezone is set.
 
+Write:
 ```
 {1:8, 2:1, 16:{0:5, 1:18, 2:{0:1, 1:<dst_start_bytes>, 2:<dst_end_bytes>}}}
 ```
-- Key 0: integer `1` (DST enabled flag)
+- Key 0: integer — DST enabled flag (1=enabled, 0=disabled)
 - Key 1: byte array — DST start transition time
 - Key 2: byte array — DST end transition time
 
-Write-only — the app never reads DST times back from the lock.
+Read (confirmed on BE459):
+```
+{1:8, 2:4, 16:{0:5, 1:19}}
+```
+Response: `{0: <enabled_flag>, 1: <start_bytes>, 2: <end_bytes>}`
+
+Default (unset) values: `{0:0, 1:[0,0,0,1], 2:[0,0,0,1]}` — DST disabled,
+both timestamps set to `[0x00, 0x00, 0x00, 0x01]`.
+
+> **Note:** The app never reads DST times, but the firmware responds to
+> `requestData(5, 19)`. Error 110 is returned if you try to `requestData(5, 18)`
+> (the write property) — this is a previously-undocumented uWeave status code.
 
 ### Operating Mode / Simultaneous Mode
 
@@ -306,8 +348,8 @@ Enable simultaneous (Matter): `saveLockConfigGroup(26, 1)` — `{1:8, 2:7, 16:{0
 > while keeping Schlage app control).
 >
 > **BE459 returns error 5** for both operating mode read (0x1B) and simultaneous
-> mode write (0x1A). These properties appear to be available only on Encode-family
-> and Walton locks with WiFi capability. See the model support matrix below.
+> mode write (0x1A). These properties are available only on Encode-family and
+> Walton locks with WiFi capability. See the model support matrix below.
 
 ---
 
