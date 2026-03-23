@@ -160,6 +160,12 @@ func cborEncodeMap(m map[int]interface{}) ([]byte, error) {
 
 var errCBORTruncated = errors.New("cbor: truncated input")
 
+// CborDecodeRaw decodes arbitrary CBOR bytes and returns the decoded value.
+func CborDecodeRaw(data []byte) (interface{}, error) {
+	v, _, err := cborDecodeValue(data)
+	return v, err
+}
+
 // cborDecodeValue decodes one CBOR value from data, returning the value and
 // the number of bytes consumed.
 func cborDecodeValue(data []byte) (interface{}, int, error) {
