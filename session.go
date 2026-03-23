@@ -561,6 +561,26 @@ func (s *Session) DeleteAllAccessCodes() error {
 	return nil
 }
 
+// FactoryReset performs a factory default reset (FDR) of the lock.
+// This erases all pairing data, access codes, and settings.
+// The BLE connection will be dropped by the lock after this command.
+func (s *Session) FactoryReset() error {
+	log.Debug("session: sending factory reset command")
+
+	req := FactoryResetRequest()
+	resp, err := s.sendRPC(req)
+	if err != nil {
+		return fmt.Errorf("session: factory reset failed: %w", err)
+	}
+	if resp.Error != nil {
+		return fmt.Errorf("session: factory reset error: %w", resp.Error)
+	}
+
+	log.WithField("result", fmt.Sprintf("%+v", resp.Result)).Debug("session: factory reset response")
+	log.Info("session: factory reset successful — lock will disconnect")
+	return nil
+}
+
 // ListAccessCodes retrieves all configured access codes from the lock.
 // Uses a check+read-loop pattern:
 //  1. Check: {1:8, 2:3, 16:{0:4, 1:6, 2:{0:0}}} → nonzero if codes exist

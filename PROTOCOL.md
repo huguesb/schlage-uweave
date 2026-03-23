@@ -96,15 +96,17 @@ Defined in `libuweave/uweave/status.h`. These appear in privet error responses a
 
 | API ID | Name | Tested | Description |
 |--------|------|--------|-------------|
-| 0 | /info | | Device info query (not used by our implementation) |
 | 2 | /pairing/start | ✓ | Begin SPAKE pairing |
 | 3 | /pairing/confirm | ✓ | Confirm SPAKE pairing |
 | 5 | /auth | ✓ | Send CAT/SAT authentication |
 | 6 | /state | ✓ | Request lock state |
 | 8 | /data | ✓ | Read/write data (multi-purpose) |
-| 9 | /setup | | Device setup (not used by our implementation) |
 | 24 (0x18) | /access/claim | ✓ | Request access control claim |
 | 25 (0x19) | /access/confirm | ✓ | Confirm access control |
+
+> **Note:** The uWeave spec defines API 0 (/info) and API 9 (/setup) but the
+> official Schlage Home app never sends either. All device info and setup
+> operations are done through API 8 (/data) instead.
 
 ---
 
@@ -115,9 +117,10 @@ Used as `params[0]` in API 8 (/data) commands.
 | Trait | Name | Description |
 |-------|------|-------------|
 | 1 | LockData | Lock state, device info, time, battery |
-| 3 | History | Event log |
+| 3 | History / DeviceMgmt | Event log; also factory reset (sub-cmd 3) |
 | 4 | AccessCodes | Keypad PIN management |
 | 5 | LockConfig | Settings, timezone, operating mode |
+| 6 | WiFi | WiFi provisioning, scanning, status |
 
 ---
 
@@ -249,14 +252,79 @@ requestLockConfigGroup(0x0B) → alarm sensitivity
 requestLockConfigGroup(0x0D) → lock-and-leave state
 ```
 
-Other trait 5 properties (not settings — same ID for read/write):
-| Property | Hex | Name | Type | Tested |
-|----------|-----|------|------|--------|
-| 15 | 0x0F | Access Code Length | int (4-8) | ✓ (read) |
-| 18 | 0x12 | DST Times | bytes | |
-| 20 | 0x14 | Timezone | int (UTC offset minutes) | ✓ (write) |
-| 27 | 0x1B | Operating Mode | int | |
-| 28 | 0x1C | Max User Codes | int | |
+### Other Trait 5 Properties
+
+These use the same ID for read and write, and have their own request formats.
+
+| Property | Hex | Name | Type | Tested | Notes |
+|----------|-----|------|------|--------|-------|
+| 14 | 0x0E | Set Access Code Length | int (4-8) | | Write-only; `{1:8, 2:2, 16:{0:5, 1:14, 2:{0:<length>}}}` |
+| 15 | 0x0F | Access Code Length | int (4-8) | ✓ (read) | Read-only |
+| 18 | 0x12 | DST Times | bytes | | See commissioning flow |
+| 20 | 0x14 | Timezone | int (UTC offset minutes) | ✓ (write) | |
+| 21 | 0x15 | Timezone (read) | int | | |
+| 26 | 0x1A | Simultaneous Mode (write) | int | | 1=enable Matter protocol alongside Schlage BLE (newer locks only) |
+| 27 | 0x1B | Operating Mode (read) | int | | 0=Schlage, 1=Simultaneous (when read via BLE) |
+| 28 | 0x1C | Max User Codes | int | | Read via `saveLockConfigGroup(28, 1)` |
+
+### Set Access Code Length
+
+Sets the PIN length for keypad access codes (4-8 digits). Sent during commissioning
+before the first access code is added.
+
+```
+{1:8, 2:2, 16:{0:5, 1:14, 2:{0:<length>}}}
+```
+No userId needed.
+
+### Set DST Times
+
+Sets daylight saving time transition timestamps. Sent during commissioning after
+timezone is set.
+
+```
+{1:8, 2:1, 16:{0:5, 1:18, 2:{0:1, 1:<dst_start_bytes>, 2:<dst_end_bytes>}}}
+```
+- Key 0: integer `1` (DST enabled flag)
+- Key 1: byte array — DST start transition time
+- Key 2: byte array — DST end transition time
+
+### Operating Mode / Simultaneous Mode
+
+The lock can operate in different modes:
+
+| Mode | Value (API) | Value (BLE read) | Description |
+|------|-------------|-------------------|-------------|
+| Schlage | 1 | 0 | Standard Schlage BLE only |
+| HomeKit | 2 | — | Apple HomeKit mode |
+| Simultaneous | 3 | 1 | Schlage BLE + Matter protocol |
+
+Read current mode: `requestLockConfigGroup(27)` — `{1:8, 2:4, 16:{0:5, 1:27}}`
+Enable simultaneous (Matter): `saveLockConfigGroup(26, 1)` — `{1:8, 2:7, 16:{0:5, 1:26, 2:{0:1, 1:<userId>}}}`
+
+> **Note:** Simultaneous mode enables the Matter smart home protocol alongside
+> Schlage BLE. It does NOT allow multiple Schlage BLE clients — it's about
+> protocol coexistence (e.g., adding the lock to Apple Home/Google Home via Matter
+> while keeping Schlage app control). Only available on newer "Walton" hardware.
+
+---
+
+## Factory Reset (Trait 3, Sub-cmd 3)
+
+Performs a factory default reset (FDR) of the lock, erasing all pairing data,
+access codes, and settings.
+
+```
+{1:8, 2:2, 16:{0:3, 1:3}}
+```
+No additional parameters. Response is success/error only.
+
+The app's flow after a successful BLE factory reset:
+1. Disconnect from the lock
+2. Remove cloud associations (`deleteLockAndAssociation`)
+3. Clean up local caches
+
+If the BLE reset fails, the app falls back to a cloud-side delete.
 
 ---
 
@@ -273,7 +341,7 @@ NOT the generic `saveData`/`requestData` pattern.
 | Encode | Other | 100 |
 | Sense (non-Encode) | BE459, etc. | 30 |
 
-The lock may also report its own `maxUserCodes` via device attributes (trait 5, property 0x0F),
+The lock may also report its own `maxUserCodes` via device attributes (trait 5, property 0x1C),
 which the app reads before listing codes. Our implementation skips this and uses `moreAvailable`
 to drive the read loop.
 
@@ -397,6 +465,84 @@ Batch mode is detected by checking for the presence of LOG_0_INDEX_KEY (0x0A).
 
 ---
 
+## WiFi Operations (Trait 6)
+
+WiFi provisioning and management. Used during commissioning to connect the lock
+to a WiFi network. All commands use API 8 (/data) with trait 6.
+
+> **Not implemented** in our codebase — documented from app analysis for completeness.
+
+### Sub-commands
+
+| Sub-cmd | ReqID | Name | Description |
+|---------|-------|------|-------------|
+| 0 | 4 | Configure WiFi | Send SSID/password/security type |
+| 1 | 4 | Read AP Params | Read current access point SSID and security |
+| 2 | 4 | Send Payload0 | Pre-configuration payload (opaque bytes) |
+| 4 | 5 | JITR Status | Read WiFi commissioning status |
+| 8 | 1 | Start WiFi Scan | Trigger scan for available networks |
+| 9 | 3 | Read Scan Results | Read one network at a time (loop on key 3) |
+| 10 | 6 | Read WiFi MAC | Read the lock's WiFi MAC address |
+
+### Configure WiFi Credentials (sub-cmd 0)
+```
+{1:8, 2:4, 16:{0:6, 1:0, 2:{0:<ssid_text>, 1:<password_text>, 2:1}}}
+```
+- Key 0: SSID as CBOR text string
+- Key 1: Password as CBOR text string
+- Key 2: Security type integer (1 = WPA Personal)
+
+### Read Access Point Params (sub-cmd 1)
+```
+{1:8, 2:4, 16:{0:6, 1:1}}
+```
+Response: `{0: <ssid_string>, 2: <security_type_int>}`
+
+### Send Payload0 (sub-cmd 2)
+```
+{1:8, 2:4, 16:{0:6, 1:2, 2:{0:<payload_bytes>}}}
+```
+Opaque pre-configuration payload sent before WiFi credentials.
+
+### JITR Status (sub-cmd 4)
+```
+{1:8, 2:5, 16:{0:6, 1:4}}
+```
+Response key 0 maps to `WifiCommissionStatus`:
+| Value | Name |
+|-------|------|
+| 0 | STOPPED |
+| 1 | STARTED |
+| 2 | SUCCESS |
+| 3 | AP_ERROR |
+| 4 | HOST_ERROR |
+| 5 | IP_ACQUIRED |
+| 6 | AP_ERROR_WRONG_CREDENTIALS |
+
+### Start WiFi Scan (sub-cmd 8)
+```
+{1:8, 2:1, 16:{0:6, 1:8}}
+```
+Response key 0: 0 = scan started, otherwise error.
+
+### Read WiFi Scan Results (sub-cmd 9)
+```
+{1:8, 2:3, 16:{0:6, 1:9}}
+```
+Returns one network per call. Response:
+- Key 0: Status (0=INFO_INCLUDED, 1=SCAN_IN_PROGRESS, 2=NO_INFO_PRESENT)
+- Key 1: SSID string
+- Key 2: RSSI integer
+- Key 3: More records flag (1 = call again for next network)
+
+### Read WiFi MAC Address (sub-cmd 10)
+```
+{1:8, 2:6, 16:{0:6, 1:10}}
+```
+Response: MAC address as string.
+
+---
+
 ## Commissioning Flow
 
 Steps marked ✓ are implemented and tested. Others are from app analysis.
@@ -410,7 +556,7 @@ Steps marked ✓ are implemented and tested. Others are from app analysis.
 7. ✓ **Confirm**: `{1:25, 2:5, 16:{0:<cat_bytes>}}`
 8. ✓ **Set Timezone**: `saveData(5, 0x14, <offset_minutes>)`
    - `{1:8, 2:7, 16:{0:5, 1:20, 2:{0:<offset>, 1:<userId>}}}`
-9. *(untested)* **Set DST Times**: custom format on trait 0x8, property 0x1
+9. *(untested)* **Set DST Times**: `{1:8, 2:1, 16:{0:5, 1:18, 2:{0:1, 1:<start_bytes>, 2:<end_bytes>}}}`
 10. ✓ Read serial number, model name, firmware version
 11. Cloud registration (not BLE — out of scope)
 12. ✓ Write first access code

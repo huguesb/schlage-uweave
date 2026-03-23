@@ -311,13 +311,11 @@ const (
 
 // Privet API endpoint IDs (value at key 1)
 const (
-	APIInfo           = 0  // /info
 	APIPairingStart   = 2  // startPairing()
 	APIPairingConfirm = 3  // /pairing/confirm
 	APIAuth           = 5  // sendCATPostPairing() / sendCAT
 	APIState          = 6  // requestLockState()
 	APIData           = 8  // requestData() / saveData()
-	APISetup          = 9  // /setup
 	APIAccessClaim    = 24 // requestAccessControlClaim() (0x18)
 	APIAccessConfirm  = 25 // confirmAccessControl() (0x19)
 )
@@ -371,8 +369,15 @@ const (
 const (
 	TraitLockData    = 1 // lockData: lock state, info, time, battery
 	TraitHistory     = 3 // history/logs: event log
+	TraitDeviceMgmt  = 3 // device management: factory reset (same trait ID as history)
 	TraitAccessCodes = 4 // access codes: keypad PIN management
 	TraitLockConfig  = 5 // lockConfig: config, timezone, operating mode
+	TraitWiFi        = 6 // wifi: provisioning, scanning, status
+)
+
+// Device management operations (trait 3).
+const (
+	DeviceMgmtOpFactoryReset = 3 // Factory default reset
 )
 
 // Property IDs for TraitLockData (trait 1) — used in requestData/saveData params key 1.
@@ -423,11 +428,12 @@ const (
 // Schlage vendor property operations
 // ---------------------------------------------------------------------------
 //
-// Five trait groups:
+// Six trait groups:
 //   1 = lock data (state, info, time, battery) — requestData/saveData
-//   3 = history/logs — check+read pattern
+//   3 = history/logs — check+read pattern; also device management (factory reset)
 //   4 = access codes — add/delete/list with dedicated commands
 //   5 = lock config (settings, timezone) — requestData/saveData
+//   6 = wifi — provisioning, scanning, status
 
 // Access code operations use TraitAccessCodes (4) with specific request types
 // and operation IDs, NOT the generic saveData/requestData pattern.
@@ -682,11 +688,6 @@ func cborInt(v interface{}) int {
 // Convenience request builders
 // ---------------------------------------------------------------------------
 
-// InfoRequest builds a /info request (no params).
-func InfoRequest() []byte {
-	return PrivetRequest(APIInfo, 0, nil)
-}
-
 // PairingStartRequest builds a startPairing request.
 // Wire format: {1:2, 2:1, 16:{0:<pairingType>, 1:<cryptoMethod>}}
 func PairingStartRequest(pairingType, cryptoMethod int) []byte {
@@ -898,6 +899,21 @@ func HistoryReadRequest(batchSize int) []byte {
 		1: batchSize,
 	}
 	return PrivetRequest(APIData, 3, params) // reqType 3
+}
+
+// ---------------------------------------------------------------------------
+// Factory reset request builder
+// ---------------------------------------------------------------------------
+
+// FactoryResetRequest builds a factory default reset (FDR) command.
+// This erases all pairing data, access codes, and settings.
+// Wire format: {1:8, 2:2, 16:{0:3, 1:3}}
+func FactoryResetRequest() []byte {
+	params := map[int]interface{}{
+		0: TraitDeviceMgmt,
+		1: DeviceMgmtOpFactoryReset,
+	}
+	return PrivetRequest(APIData, 2, params) // reqType 2
 }
 
 // ---------------------------------------------------------------------------
