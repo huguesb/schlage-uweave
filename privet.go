@@ -985,6 +985,8 @@ type LockSettings struct {
 	AlarmSensitivity int  // alarm sensitivity
 	TimezoneOffset   int  // UTC offset in minutes
 	OperatingMode    int  // 0=Schlage, 1=Simultaneous (Matter)
+	CodeLength       int  // PIN digit count (4-8), 0 if unset
+	DST              *DSTTimes // nil if read failed
 }
 
 // DSTTimes holds the daylight saving time configuration read from the lock.

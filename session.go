@@ -406,6 +406,24 @@ func (s *Session) SetTimezone(offsetMinutes int) error {
 	return nil
 }
 
+// SetTime writes the current time to the lock as a Unix timestamp.
+// Uses saveData on trait 1 (LockData), property 7 (CurrentTime).
+func (s *Session) SetTime(unixSeconds int64) error {
+	log.WithField("time", unixSeconds).Debug("session: setting lock time")
+
+	req := SaveDataRequest(TraitLockData, PropCurrentTime, unixSeconds, s.getUserID())
+	resp, err := s.sendRPC(req)
+	if err != nil {
+		return fmt.Errorf("session: set time failed: %w", err)
+	}
+	if resp.Error != nil {
+		return fmt.Errorf("session: set time error: %w", resp.Error)
+	}
+
+	log.Info("session: lock time set successfully")
+	return nil
+}
+
 // GetState queries the lock's current state.
 // Returns: locked (bool), battery (int, percentage), jammed (bool), doorState (int)
 func (s *Session) GetState() (locked bool, battery int, jammed bool, doorState int, err error) {
@@ -961,6 +979,16 @@ func (s *Session) GetSettings() (*LockSettings, error) {
 		"timezone":         settings.TimezoneOffset,
 		"operatingMode":    settings.OperatingMode,
 	}).Info("session: lock settings retrieved")
+
+	// Code length (best-effort, separate read pattern)
+	if codeLen, err := s.GetAccessCodeLength(); err == nil {
+		settings.CodeLength = codeLen
+	}
+
+	// DST times (best-effort)
+	if dst, err := s.GetDSTTimes(); err == nil {
+		settings.DST = dst
+	}
 
 	return settings, nil
 }
