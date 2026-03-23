@@ -8,6 +8,29 @@ import (
 	"sort"
 )
 
+// ---------------------------------------------------------------------------
+// BLE discovery constants
+// ---------------------------------------------------------------------------
+
+const (
+	// WeaveAdvServiceUUID is the Google Weave BLE service UUID (0xFEAF),
+	// advertised in non-connectable advertisements.
+	WeaveAdvServiceUUID16 = 0xFEAF
+
+	// UWeaveServiceUUID is the Schlage uWeave GATT service UUID,
+	// exposed on the connectable BLE interface.
+	UWeaveServiceUUID = "883f45ec-14cb-46aa-9864-9a4e782b33d0"
+
+	// RXCharUUID is the GATT characteristic UUID the client writes to (lock receives).
+	RXCharUUID = "ff530c78-cd50-4bb9-bbd4-0712f32b3796"
+
+	// TXCharUUID is the GATT characteristic UUID the lock indicates on (client receives).
+	TXCharUUID = "26002998-e001-4812-8c08-5cd2afda0830"
+
+	// AllegionCompanyID is Allegion's Bluetooth SIG company identifier.
+	AllegionCompanyID = 0x013B
+)
+
 // CBOR major types
 const (
 	cborUint   = 0 << 5 // 0x00
