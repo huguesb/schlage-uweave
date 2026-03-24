@@ -388,16 +388,22 @@ const (
 
 // Property IDs for TraitLockData (trait 1) — used in requestData/saveData params key 1.
 const (
-	PropLockStatus      = 0    // Lock/unlock state (R/W)
-	PropModelName       = 3    // Model name (R)
-	PropSerialNumber    = 4    // Serial number (R)
-	PropFirmwareVersion = 5    // Firmware version (R)
-	PropSetTime         = 6    // Set current time (W)
-	PropCurrentTime     = 7    // Current time (R)
-	PropBatteryState    = 0x0C // Battery state (R) — 12
-	PropAlarmEnabled    = 0x0E // Alarm selection (R) — 14
-	PropBatteryLevel    = 0x15 // Battery percentage (R) — 21
-	PropDoorState       = 0x19 // Door state (R) — 25: UNKNOWN=0, OPEN=1, CLOSE=2, FAULTY=3
+	PropLockStatus       = 0    // Lock/unlock command (W)
+	PropLockState        = 1    // Lock state (R): 0=unlocked, 1=locked
+	PropManufacturer2    = 2    // Manufacturer (R) — duplicate, returns "Schlage"
+	PropModelName        = 3    // Model name (R)
+	PropSerialNumber     = 4    // Serial number (R)
+	PropFirmwareVersion  = 5    // Firmware version (R)
+	PropSetTime          = 6    // Set current time (W)
+	PropCurrentTime      = 7    // Current time (R)
+	PropKeypadFirmware   = 8    // Keypad firmware version (R)
+	PropManufacturer     = 0x0A // Manufacturer (R) — "Schlage"
+	PropLockName         = 0x0B // Lock name / model label (R) — "Schlage Mode"
+	PropBatteryState     = 0x0C // Battery state (R) — 12
+	PropAlarmEnabled     = 0x0E // Alarm selection (R) — 14
+	PropFirmwareManifest = 0x0F // Firmware manifest (R) — multi-component version map
+	PropBatteryLevel     = 0x15 // Battery percentage (R) — 21
+	PropDoorState        = 0x19 // Door state (R) — 25: UNKNOWN=0, OPEN=1, CLOSE=2, FAULTY=3
 )
 
 // Door state values for Schlage Sense locks.
@@ -504,14 +510,14 @@ const (
 //   11 → model name ("Schlage Mode"), 12 (0x0C) → battery level (99)
 // NOT available via requestData: 9 (error 5), 0x15 (error 5 — battery only in state response)
 const (
-	DeviceInfoKeyModelNumber    = PropModelName       // 3: confirmed "be459wb"
-	DeviceInfoKeySerialNumber   = PropSerialNumber    // 4: confirmed
+	DeviceInfoKeyModelNumber    = PropModelName      // 3: confirmed "be459wb"
+	DeviceInfoKeySerialNumber   = PropSerialNumber   // 4: confirmed
 	DeviceInfoKeyFirmwareVer    = PropFirmwareVersion // 5: confirmed "00.09.044544"
-	DeviceInfoKeyCurrentTime    = PropCurrentTime     // 7: confirmed (unix timestamp)
-	DeviceInfoKeyKeypadFirmware = 8                   // confirmed "1.1"
-	DeviceInfoKeyManufacturer   = 10                  // confirmed "Schlage"
-	DeviceInfoKeyLockName       = 11                  // confirmed "Schlage Mode"
-	DeviceInfoKeyBatteryLevel   = PropBatteryState    // 0x0C: returns battery % (e.g. 99)
+	DeviceInfoKeyCurrentTime    = PropCurrentTime    // 7: confirmed (unix timestamp)
+	DeviceInfoKeyKeypadFirmware = PropKeypadFirmware // 8: confirmed "1.1"
+	DeviceInfoKeyManufacturer   = PropManufacturer   // 0x0A: confirmed "Schlage"
+	DeviceInfoKeyLockName       = PropLockName       // 0x0B: confirmed "Schlage Mode"
+	DeviceInfoKeyBatteryLevel   = PropBatteryState   // 0x0C: returns battery % (e.g. 99)
 )
 
 // History log entry keys.
