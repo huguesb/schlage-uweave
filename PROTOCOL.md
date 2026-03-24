@@ -208,22 +208,74 @@ Value 0 = UNLOCKED ordinal.
 
 ---
 
-## Device Info (Read Properties on Trait 1)
+## Device Info / Lock Data (Trait 1)
 
-Uses `requestData` with trait=1.
+Read: `requestData(1, <property>)` → `{1:8, 2:4, 16:{0:1, 1:<property>}}`
+Write: `saveData(1, <property>, <value>)` → `{1:8, 2:7, 16:{0:1, 1:<property>, 2:{0:<value>, 1:<userId>}}}`
+
+### Probe Results (BE459, firmware 00.09.044544)
+
+Full `requestData` sweep of trait 1 property IDs 0x00–0x0F. Trait 1 follows
+the same write=N/read=N+1 pattern as trait 5 for time (write=0x06, read=0x07).
+
+| Write | Read | Name | BE459 Read | Notes |
+|-------|------|------|------------|-------|
+| 0x00 | 0x01 | Lock Status | OK: int 1 | Write=lock/unlock; read=current state (0=unlocked, 1=locked) |
+| 0x02 | 0x03 | Manufacturer / Model | "be459wb" | 0x02 also returns "Schlage" (manufacturer) |
+| — | 0x04 | Serial Number | (serial string) | Read-only |
+| — | 0x05 | Main Firmware Version | "00.09.044544" | Read-only |
+| 0x06 | 0x07 | Current Time | (unix timestamp) | Write sets clock; read returns current time |
+| — | 0x08 | Keypad Firmware | "1.1" | Read-only |
+| — | 0x09 | ? | error 5 | Unknown / not supported on BE459 |
+| — | 0x0A | Manufacturer | "Schlage" | Read-only |
+| — | 0x0B | Lock Name | "Schlage Mode" | Read-only; model/mode label |
+| — | 0x0C | Battery Level | 99 | Read-only; percentage |
+| — | 0x0D | ? | error 5 | Unknown / not supported on BE459 |
+| — | 0x0E | ? | error 5 | Unknown / not supported on BE459 |
+| — | 0x0F | Firmware Manifest | (large map) | Read-only; multi-component version info |
+
+Gaps: 0x09, 0x0D, 0x0E return error 5.
+
+### Firmware Manifest (Property 0x0F)
+
+Property 0x0F returns a rich firmware version manifest with multiple components:
+
+```
+{
+  0: "00.09.044544",   // Main firmware
+  1: "1.1",            // Keypad firmware
+  2: "4.4",            // Component 2
+  3: "0.1",            // Component 3
+  4: "",               // Component 4 (empty)
+  5: "1.3"             // Component 5
+}
+```
+
+### Known Read Properties
 
 | Property | Confirmed Value | Description |
 |----------|----------------|-------------|
-| 3 | "be459wb" | Model number |
-| 4 | (serial) | Serial number |
-| 5 | "00.09.044544" | Main firmware version |
-| 7 | (unix timestamp) | Current time |
-| 8 | "1.1" | Keypad firmware |
-| 10 | "Schlage" | Manufacturer |
-| 11 | "Schlage Mode" | Lock name / model name |
-| 12 (0x0C) | 99 | Battery level |
+| 0x01 | 1 | Lock state (0=unlocked, 1=locked) |
+| 0x03 | "be459wb" | Model number |
+| 0x04 | (serial) | Serial number |
+| 0x05 | "00.09.044544" | Main firmware version |
+| 0x07 | (unix timestamp) | Current time |
+| 0x08 | "1.1" | Keypad firmware |
+| 0x0A | "Schlage" | Manufacturer |
+| 0x0B | "Schlage Mode" | Lock name / model name |
+| 0x0C | 99 | Battery level (percentage) |
+| 0x0F | (firmware manifest map) | Multi-component version info |
 
-Properties 9 and 0x15 return error 5 on BE459.
+### Set Time (Write Property 0x06)
+
+Sets the lock's internal clock. Uses `saveData` on trait 1, property 6.
+
+```
+{1:8, 2:7, 16:{0:1, 1:6, 2:{0:<unix_timestamp>, 1:<userId>}}}
+```
+
+Should be called during pairing/claim flow and periodically to keep the lock's
+clock accurate (the lock has no NTP or other time source).
 
 ---
 
@@ -386,7 +438,7 @@ Device families and their capabilities, from decompiled APK analysis (`SenseDevi
 | Operating mode / simultaneous | No | **error 5** | ✓ (WiFi variants) | ✓ (WiFi variants) |
 | WiFi (trait 6) | via Bridge | WiFi variant | WiFi variants | WiFi variant |
 | History batch size | ? | 1 only | up to 5 | up to 5 |
-| DST times | ? | untested | untested | untested |
+| DST times | ? | ✓ (read/write) | untested | untested |
 | Deadlock | No | ✓ | ✓ | ✓ |
 | Passage mode | No | ✓ | ✓ | ✓ |
 

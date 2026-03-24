@@ -407,11 +407,11 @@ func (s *Session) SetTimezone(offsetMinutes int) error {
 }
 
 // SetTime writes the current time to the lock as a Unix timestamp.
-// Uses saveData on trait 1 (LockData), property 7 (CurrentTime).
+// Uses saveData on trait 1 (LockData), property 6 (SetTime — the write property).
 func (s *Session) SetTime(unixSeconds int64) error {
 	log.WithField("time", unixSeconds).Debug("session: setting lock time")
 
-	req := SaveDataRequest(TraitLockData, PropCurrentTime, unixSeconds, s.getUserID())
+	req := SaveDataRequest(TraitLockData, PropSetTime, unixSeconds, s.getUserID())
 	resp, err := s.sendRPC(req)
 	if err != nil {
 		return fmt.Errorf("session: set time failed: %w", err)

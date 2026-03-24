@@ -392,7 +392,7 @@ const (
 	PropModelName       = 3    // Model name (R)
 	PropSerialNumber    = 4    // Serial number (R)
 	PropFirmwareVersion = 5    // Firmware version (R)
-	PropSetCurrentTime  = 6    // Set time (W)
+	PropSetTime         = 6    // Set current time (W)
 	PropCurrentTime     = 7    // Current time (R)
 	PropBatteryState    = 0x0C // Battery state (R) — 12
 	PropAlarmEnabled    = 0x0E // Alarm selection (R) — 14
@@ -430,13 +430,6 @@ const (
 // Lock state response keys — inner map from requestLockState response.
 // Response navigated as: result[0x11][0x01][0x00][0x00][0x01] → innerMap
 // innerMap keys match PropLockStatus, PropBatteryState, PropAlarmEnabled, PropBatteryLevel, PropDoorState.
-
-// Deprecated: old command execute constants. Lock/unlock uses saveData, not CommandExecute.
-// Kept for reference only.
-// const (
-// 	TraitIDLock             = 1 // was used with CommandExecute
-// 	CommandIDBoltLockChange = 1 // was BoltLockChangeRequest
-// )
 
 // ---------------------------------------------------------------------------
 // Schlage vendor property operations
