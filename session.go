@@ -63,7 +63,7 @@ func (s *Session) Connect(cryptoMode byte) error {
 	log.Debug("session: ConnectionRequest write acknowledged by lock")
 
 	// Wait for ConnectionConfirm.
-	log.Info("session: waiting for ConnectionConfirm (press the button on the interior of the lock)...")
+	log.Debug("session: waiting for ConnectionConfirm...")
 	confirmData, err := s.transport.Receive()
 	if err != nil {
 		return fmt.Errorf("session: failed to receive ConnectionConfirm: %w", err)
